@@ -14,7 +14,9 @@
 
 package main
 
-import "github.com/ushu/udemy-backup/cmd"
+import (
+	"github.com/ushu/udemy-backup/cmd"
+)
 
 func main() {
 	cmd.Execute()
