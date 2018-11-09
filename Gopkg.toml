@@ -25,7 +25,7 @@
 #   unused-packages = true
 
 
-[[constraint]]
+[[override]]
   name = "github.com/mitchellh/go-homedir"
   version = "1.0.0"
 
@@ -45,6 +45,3 @@
   name = "github.com/manifoldco/promptui"
   version = "0.3.1"
 
-[[constraint]]
-  name = "gopkg.in/yaml.v2"
-  version = "2.2.1"
