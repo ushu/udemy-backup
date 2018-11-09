@@ -15,10 +15,10 @@ type User struct {
 }
 
 type Courses struct {
-	Count    int      `json:"count"`
-	Next     string   `json:"next"`
-	Previous string   `json:"previous"`
-	Results  []Course `json:"results"`
+	Count    int       `json:"count"`
+	Next     string    `json:"next"`
+	Previous string    `json:"previous"`
+	Results  []*Course `json:"results"`
 }
 
 type Course struct {

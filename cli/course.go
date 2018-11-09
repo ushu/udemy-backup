@@ -5,7 +5,7 @@ import (
 	"github.com/ushu/udemy-backup/client"
 )
 
-func SelectCourse(courses []client.Course) (*client.Course, error) {
+func SelectCourse(courses []*client.Course) (*client.Course, error) {
 	templates := &promptui.SelectTemplates{
 		Label:    "{{ . }}?",
 		Active:   "🤓 {{ .Title | cyan }} ({{ .ID | red }})",
@@ -28,5 +28,5 @@ func SelectCourse(courses []client.Course) (*client.Course, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &courses[i], nil
+	return courses[i], nil
 }

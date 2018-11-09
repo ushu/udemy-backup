@@ -17,6 +17,7 @@ var PreferredResolution int
 var NumWorkers int
 var Dir string
 var Restart bool
+var All bool
 
 // backupCmd represents the backup command
 var backupCmd = &cobra.Command{
@@ -32,6 +33,7 @@ func init() {
 	backupCmd.PersistentFlags().IntVar(&NumWorkers, "concurrency", runtime.NumCPU(), "number of parallel downloads")
 	backupCmd.PersistentFlags().StringVar(&Dir, "dir", ".", "output directory for downloads")
 	backupCmd.PersistentFlags().BoolVar(&Restart, "restart", false, "skip download of existing files")
+	backupCmd.PersistentFlags().BoolVar(&All, "all", false, "backup all the subscribed courses for the account")
 	viper.BindPFlag("resolution", backupCmd.PersistentFlags().Lookup("resolution"))
 	viper.BindPFlag("concurrency", backupCmd.PersistentFlags().Lookup("concurrency"))
 	viper.BindPFlag("dir", backupCmd.PersistentFlags().Lookup("dir"))
@@ -52,39 +54,64 @@ func runBackup(cmd *cobra.Command, args []string) {
 	c := client.New(id, token)
 	ctx = backup.SetClient(ctx, c)
 
-	var course *client.Course
-	if len(args) > 0 {
-		courseID, err := strconv.Atoi(args[0])
-		if err != nil {
-			cli.Logerr("COURSE_ID should be a number (integer)")
-		}
-		course, err = c.GetCourse(courseID)
-		if err != nil {
-			cli.Logerr("Could not load course info:", err)
-			os.Exit(1)
-		}
-	} else {
+	if All {
 		// list all the course
 		courses, err := c.ListAllCourses()
 		if err != nil {
 			cli.Logerrf("Failed to list courses: %v\n", err)
 			os.Exit(1)
 		}
+		cli.Logf("⚙️  Found %d courses to backup\n", len(courses))
 
-		// prompt the user to select a course
-		course, err = cli.SelectCourse(courses)
+		for _, course := range courses {
+			cli.Log("⚙️  Starting backup for:", course.Title)
+			err = backupCourse(ctx, course)
+			if err != nil {
+				os.Exit(1)
+			}
+		}
+	} else {
+		var course *client.Course
+		if len(args) > 0 {
+			courseID, err := strconv.Atoi(args[0])
+			if err != nil {
+				cli.Logerr("COURSE_ID should be a number (integer)")
+			}
+			course, err = c.GetCourse(courseID)
+			if err != nil {
+				cli.Logerr("Could not load course info:", err)
+				os.Exit(1)
+			}
+		} else {
+			// list all the course
+			courses, err := c.ListAllCourses()
+			if err != nil {
+				cli.Logerrf("Failed to list courses: %v\n", err)
+				os.Exit(1)
+			}
+
+			// prompt the user to select a course
+			course, err = cli.SelectCourse(courses)
+			if err != nil {
+				cli.Logerrf("Could not select course: %v\n", err)
+				os.Exit(1)
+			}
+		}
+
+		// backup starts here
+		err = backupCourse(ctx, course)
 		if err != nil {
-			cli.Logerrf("Could not select course: %v\n", err)
 			os.Exit(1)
 		}
 	}
+}
 
-	// backup starts here
-	err = backup.Run(ctx, course)
+func backupCourse(ctx context.Context, course *client.Course) error {
+	err := backup.Run(ctx, course)
 	if err == nil {
 		cli.Log("🍾 Done backuping course", course.Title)
 	} else {
 		cli.Logerr("☠️  Error while backuping course:", err)
-		os.Exit(1)
 	}
+	return err
 }

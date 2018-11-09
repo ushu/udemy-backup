@@ -60,8 +60,8 @@ func (c *Client) ListCourses(opt *PaginationOptions) (*Courses, error) {
 	return cc, err
 }
 
-func (c *Client) ListAllCourses() ([]Course, error) {
-	var cc []Course
+func (c *Client) ListAllCourses() ([]*Course, error) {
+	var cc []*Course
 	opt := &PaginationOptions{
 		Page: 1,
 	}
