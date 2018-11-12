@@ -35,12 +35,11 @@ func Run(ctx context.Context, course *client.Course) error {
 	c := GetClient(ctx)
 	res := viper.GetInt("resolution")
 	numWorkers := viper.GetInt("concurrency")
-	dir := viper.GetString("dir")
 	restart := viper.GetBool("restart")
 
 	// first list all the lectures for the course
 	cli.Logf("⚙️  Loading lectures: ")
-	lectures, err := c.ListAllLectures(course.ID, true)
+	lectures, err := c.LoadFullCurriculum(course.ID)
 	if err != nil {
 		cli.Log()
 		return err
@@ -55,7 +54,6 @@ func Run(ctx context.Context, course *client.Course) error {
 	cli.Logf("⚙️  Stating download with %d workers\n", numWorkers)
 	ch := make(chan *work, numWorkers)
 	var wg sync.WaitGroup
-	slug := getCourseSlug(course)
 	wg.Add(numWorkers)
 
 	for i := 0; i < numWorkers; i++ {
@@ -70,6 +68,7 @@ func Run(ctx context.Context, course *client.Course) error {
 					if !ok {
 						return
 					}
+					dir := getChapterDirectory(course, w.Lecture.Chapter)
 					prefix := getLecturePrefix(w.Lecture)
 					title := pathSanitizer.Replace(w.Title)
 
@@ -77,7 +76,7 @@ func Run(ctx context.Context, course *client.Course) error {
 					case *client.Video:
 						// we build the final name for the downloaded file
 						fileName := fmt.Sprintf("%s-%s.mp4", prefix, title)
-						p := filepath.Join(dir, slug, fileName)
+						p := filepath.Join(dir, fileName)
 
 						if restart && FileExists(p) {
 							cli.Log("💡  skipping existing file:", fileName)
@@ -93,8 +92,8 @@ func Run(ctx context.Context, course *client.Course) error {
 						}
 						cli.Logf("🎬 %s ✅\n", fileName)
 					case *client.File:
-						// we build the final name for the downloaded file
-						p := filepath.Join(dir, slug, prefix, title)
+						dir := getLectureAssetsDirectory(course, w.Lecture)
+						p := filepath.Join(dir, title)
 
 						if restart && FileExists(p) {
 							cli.Log("💡  skipping existing file:", filepath.Join(prefix, title))
@@ -108,10 +107,11 @@ func Run(ctx context.Context, course *client.Course) error {
 							cancel()
 							return
 						}
-						cli.Logf("🔗  %s ✅\n", filepath.Join(prefix, title))
+						cli.Logf("🔗 %s ✅\n", filepath.Join(prefix, title))
 					case []*link:
+						dir := getLectureAssetsDirectory(course, w.Lecture)
 						fileName := fmt.Sprintf("%s.txt", title)
-						p := filepath.Join(dir, slug, prefix, fileName)
+						p := filepath.Join(dir, fileName)
 
 						if restart && FileExists(p) {
 							cli.Log("💡  skipping existing file:", filepath.Join(prefix, fileName))
@@ -130,7 +130,7 @@ func Run(ctx context.Context, course *client.Course) error {
 						ext := filepath.Ext(a.FileName)
 						locale := a.Locale.Locale
 						fileName := fmt.Sprintf("%s-%s.%s%s", prefix, base, locale, ext)
-						p := filepath.Join(dir, slug, fileName)
+						p := filepath.Join(dir, fileName)
 
 						if restart && FileExists(p) {
 							cli.Log("💡  skipping existing file:", fileName)
@@ -157,12 +157,21 @@ func Run(ctx context.Context, course *client.Course) error {
 		err = e
 		cancel()
 	} else {
+		var currentChapter *client.Chapter
 	Loop:
 		for _, l := range lectures {
 			select {
 			case <-ctx.Done():
 				break
 			default:
+			}
+
+			if l.Chapter != nil && currentChapter != l.Chapter {
+				if e = buildChapterDirectory(course, l.Chapter); e != nil {
+					err = e
+					cancel()
+					break Loop
+				}
 			}
 
 			// enqueue all the videos for downloading
@@ -178,37 +187,37 @@ func Run(ctx context.Context, course *client.Course) error {
 				if video != nil {
 					// and finally trigger the workers
 					select {
-					case <-ctx.Done():
-						break Loop
 					case ch <- &work{
 						Lecture: l,
 						Title:   video.Label,
 						Asset:   video,
 					}:
+					case <-ctx.Done():
+						break Loop
 					}
 				}
 
 				for _, c := range l.Asset.Captions {
 					select {
-					case <-ctx.Done():
-						break Loop
 					case ch <- &work{
 						Lecture: l,
 						Title:   video.Label,
 						Asset:   c,
 					}:
+					case <-ctx.Done():
+						break Loop
 					}
 				}
 			}
 
 			// also download additional files
 			if len(l.SupplementatyAssets) > 0 {
-				e := buildLecureAssetsDirectory(course, l)
-				if e != nil {
+				if e = buildLectureAssetsDirectory(course, l); e != nil {
 					err = e
 					cancel()
-					break
+					break Loop
 				}
+
 				var links []*link
 				for _, a := range l.SupplementatyAssets {
 					if a.AssetType == "ExternalLink" {
@@ -222,25 +231,25 @@ func Run(ctx context.Context, course *client.Course) error {
 					}
 					for _, f := range a.DownloadUrls.File {
 						select {
-						case <-ctx.Done():
-							break Loop
 						case ch <- &work{
 							Lecture: l,
 							Title:   a.Title,
 							Asset:   f,
 						}:
+						case <-ctx.Done():
+							break Loop
 						}
 					}
 				}
 				if len(links) > 0 {
 					select {
-					case <-ctx.Done():
-						break Loop
 					case ch <- &work{
 						Lecture: l,
 						Title:   "links",
 						Asset:   links,
 					}:
+					case <-ctx.Done():
+						break Loop
 					}
 				}
 			}
@@ -344,9 +353,7 @@ func dumpLinks(filePath string, links []*link) error {
 }
 
 func buildCourseDirectory(course *client.Course) error {
-	dir := viper.GetString("dir")
-	slug := getCourseSlug(course)
-	p := filepath.Join(dir, slug)
+	p := getCourseDirectory(course)
 	err := os.MkdirAll(p, 0755)
 	if err != nil && !os.IsExist(err) {
 		return err
@@ -354,23 +361,52 @@ func buildCourseDirectory(course *client.Course) error {
 	return nil
 }
 
-func buildLecureAssetsDirectory(course *client.Course, lecture *client.Lecture) error {
+func getCourseDirectory(course *client.Course) string {
 	dir := viper.GetString("dir")
 	slug := getCourseSlug(course)
-	prefix := getLecturePrefix(lecture)
-	p := filepath.Join(dir, slug, prefix)
-	err := os.MkdirAll(p, 0755)
-	if err != nil && !os.IsExist(err) {
-		return err
-	}
-	return nil
+	return filepath.Join(dir, slug)
 }
 
 func getCourseSlug(course *client.Course) string {
 	return strings.Split(course.URL, "/")[1]
 }
 
+func buildLectureAssetsDirectory(course *client.Course, lecture *client.Lecture) error {
+	p := getLectureAssetsDirectory(course, lecture)
+	err := os.MkdirAll(p, 0755)
+	if err != nil && !os.IsExist(err) {
+		return err
+	}
+	return nil
+}
+
+func getLectureAssetsDirectory(course *client.Course, lecture *client.Lecture) string {
+	dir := getChapterDirectory(course, lecture.Chapter)
+	prefix := getLecturePrefix(lecture)
+	return filepath.Join(dir, prefix)
+}
+
+func buildChapterDirectory(course *client.Course, chapter *client.Chapter) error {
+	p := getChapterDirectory(course, chapter)
+	err := os.MkdirAll(p, 0755)
+	if err != nil && !os.IsExist(err) {
+		return err
+	}
+	return nil
+}
+
+func getChapterDirectory(course *client.Course, chapter *client.Chapter) string {
+	dir := viper.GetString("dir")
+	slug := getCourseSlug(course)
+	var chapterPath string
+	if chapter != nil {
+		title := pathSanitizer.Replace(chapter.Title)
+		chapterPath = fmt.Sprintf("%d. %s", chapter.ObjectIndex, title)
+	}
+	return filepath.Join(dir, slug, chapterPath)
+}
+
 func getLecturePrefix(lecture *client.Lecture) string {
-	prefix := fmt.Sprintf("%03d-%s", lecture.ObjectIndex, lecture.Title)
+	prefix := fmt.Sprintf("%d. %s", lecture.ObjectIndex, lecture.Title)
 	return pathSanitizer.Replace(prefix)
 }
