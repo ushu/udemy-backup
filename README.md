@@ -13,10 +13,18 @@ The tool itself is still work-in-progress, but compared to other solutions I use
 The tool is a go binary, you can install it using `go get`:
 
 ```sh
-$ go get -u https://github.com/ushu/udemy-backup
+$ go get -u github.com/ushu/udemy-backup
 ```
 
-or by cloning the repo and using the `dep` vendoring tool:
+and then use the tool to perform backups:
+
+```sh
+$ udemy-backup backup
+```
+
+### Setup for development
+
+Clone the repo and use go [`dep`](https://github.com/golang/dep) to fetch dependencies:
 
 ```sh
 # clone the project into your GOPATH, then:
@@ -36,6 +44,8 @@ This information can be easily retreived from the cookies of your web browser, f
     chrome://settings/cookies/detail?site=www.udemy.com
 
 then spot the cookies named `client_id` and `access_token` and remember their values.
+
+_NOTE: a good place to store the credentials is the [config file](#global-configuration-file) !_
 
 ## Usage
 
@@ -155,7 +165,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## TODO
 
 * [ ] Add backup for slides
-* [ ] Generally speaking support more asset types
-* [ ] Improve terminal output
+* [ ] Improve terminal output (maybe using a progress bar ?)
 * [ ] Improve error handling (right now any error fails the whole process)
 * [ ] Cleanup the code
