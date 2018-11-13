@@ -18,6 +18,7 @@ var NumWorkers int
 var Dir string
 var Restart bool
 var All bool
+var Subtitles bool
 
 // backupCmd represents the backup command
 var backupCmd = &cobra.Command{
@@ -34,10 +35,12 @@ func init() {
 	backupCmd.PersistentFlags().StringVar(&Dir, "dir", ".", "output directory for downloads")
 	backupCmd.PersistentFlags().BoolVar(&Restart, "restart", false, "skip download of existing files")
 	backupCmd.PersistentFlags().BoolVar(&All, "all", false, "backup all the subscribed courses for the account")
+	backupCmd.PersistentFlags().BoolVar(&Subtitles, "subtitles", false, "download subtitles (vtt) files")
 	viper.BindPFlag("resolution", backupCmd.PersistentFlags().Lookup("resolution"))
 	viper.BindPFlag("concurrency", backupCmd.PersistentFlags().Lookup("concurrency"))
 	viper.BindPFlag("dir", backupCmd.PersistentFlags().Lookup("dir"))
 	viper.BindPFlag("restart", backupCmd.PersistentFlags().Lookup("restart"))
+	viper.BindPFlag("subtitles", backupCmd.PersistentFlags().Lookup("subtitles"))
 }
 
 func runBackup(cmd *cobra.Command, args []string) {

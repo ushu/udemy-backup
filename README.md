@@ -140,6 +140,8 @@ dir: "udemy-backups"
 restart: true
 # Force concurrency to 8 simultaneous downloads
 concurrency: 8
+# Don't backup captions
+subtitles: false
 ```
 
 ## Contributing

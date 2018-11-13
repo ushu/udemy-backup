@@ -44,7 +44,7 @@ func New(id, accessToken string) *Client {
 		AccessToken: accessToken,
 		HTTPClient: &http.Client{
 			Transport: tr,
-			Timeout:   time.Second * 300,
+			Timeout:   time.Second * 600,
 		},
 	}
 }

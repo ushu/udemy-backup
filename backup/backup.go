@@ -36,6 +36,7 @@ func Run(ctx context.Context, course *client.Course) error {
 	res := viper.GetInt("resolution")
 	numWorkers := viper.GetInt("concurrency")
 	restart := viper.GetBool("restart")
+	subtitles := viper.GetBool("subtitles")
 
 	// first list all the lectures for the course
 	cli.Logf("⚙️  Loading lectures: ")
@@ -75,11 +76,11 @@ func Run(ctx context.Context, course *client.Course) error {
 					switch a := w.Asset.(type) {
 					case *client.Video:
 						// we build the final name for the downloaded file
-						fileName := fmt.Sprintf("%s-%s.mp4", prefix, title)
+						fileName := fmt.Sprintf("%s.mp4", prefix)
 						p := filepath.Join(dir, fileName)
 
 						if restart && FileExists(p) {
-							cli.Log("💡  skipping existing file:", fileName)
+							cli.Log("💡 skipping existing file:", fileName)
 							continue
 						}
 
@@ -96,7 +97,7 @@ func Run(ctx context.Context, course *client.Course) error {
 						p := filepath.Join(dir, title)
 
 						if restart && FileExists(p) {
-							cli.Log("💡  skipping existing file:", filepath.Join(prefix, title))
+							cli.Log("💡 skipping existing file:", filepath.Join(prefix, title))
 							continue
 						}
 
@@ -107,14 +108,14 @@ func Run(ctx context.Context, course *client.Course) error {
 							cancel()
 							return
 						}
-						cli.Logf("🔗 %s ✅\n", filepath.Join(prefix, title))
+						cli.Logf("🔗  %s ✅\n", filepath.Join(prefix, title))
 					case []*link:
 						dir := getLectureAssetsDirectory(course, w.Lecture)
 						fileName := fmt.Sprintf("%s.txt", title)
 						p := filepath.Join(dir, fileName)
 
 						if restart && FileExists(p) {
-							cli.Log("💡  skipping existing file:", filepath.Join(prefix, fileName))
+							cli.Log("💡 skipping existing file:", filepath.Join(prefix, fileName))
 							continue
 						}
 
@@ -124,16 +125,15 @@ func Run(ctx context.Context, course *client.Course) error {
 							cancel()
 							return
 						}
-						cli.Logf("🔗  %s ✅\n", filepath.Join(prefix, fileName))
+						cli.Logf("🔗 %s ✅\n", filepath.Join(prefix, fileName))
 					case *client.Caption:
-						base := strings.TrimSuffix(title, filepath.Ext(title))
 						ext := filepath.Ext(a.FileName)
 						locale := a.Locale.Locale
-						fileName := fmt.Sprintf("%s-%s.%s%s", prefix, base, locale, ext)
+						fileName := fmt.Sprintf("%s.%s%s", prefix, locale, ext)
 						p := filepath.Join(dir, fileName)
 
 						if restart && FileExists(p) {
-							cli.Log("💡  skipping existing file:", fileName)
+							cli.Log("💡 skipping existing file:", fileName)
 							continue
 						}
 
@@ -197,15 +197,17 @@ func Run(ctx context.Context, course *client.Course) error {
 					}
 				}
 
-				for _, c := range l.Asset.Captions {
-					select {
-					case ch <- &work{
-						Lecture: l,
-						Title:   video.Label,
-						Asset:   c,
-					}:
-					case <-ctx.Done():
-						break Loop
+				if subtitles {
+					for _, c := range l.Asset.Captions {
+						select {
+						case ch <- &work{
+							Lecture: l,
+							Title:   video.Label,
+							Asset:   c,
+						}:
+						case <-ctx.Done():
+							break Loop
+						}
 					}
 				}
 			}
