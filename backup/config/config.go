@@ -1,4 +1,4 @@
-package backup
+package config
 
 import (
 	"context"
@@ -16,7 +16,7 @@ type Config struct {
 	RootDir       string
 }
 
-func NewConfig(ctx context.Context, c *client.Client) *Config {
+func New(ctx context.Context, c *client.Client) *Config {
 	return &Config{
 		Client:        c,
 		Resolution:    viper.GetInt("resolution"),

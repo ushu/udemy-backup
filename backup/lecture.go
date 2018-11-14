@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/ushu/udemy-backup/backup/config"
+	"github.com/ushu/udemy-backup/backup/pool"
 	"github.com/ushu/udemy-backup/client"
 )
 
@@ -16,11 +18,15 @@ type link struct {
 	URL   string
 }
 
-func BackupLecture(ctx context.Context, cfg *Config, course *client.Course, lecture *client.Lecture) error {
+func BackupLecture(ctx context.Context, course *client.Course, lecture *client.Lecture) error {
+	cfg, ok := config.FromContext(ctx)
+	if !ok {
+		return errors.New("missing config")
+	}
 	prefix := getLecturePrefix(lecture)
 
 	// grab the pool
-	workerPool, ok := FromContext(ctx)
+	workerPool, ok := pool.FromContext(ctx)
 	if !ok {
 		return errors.New("could not locate the worker pool")
 	}
@@ -140,7 +146,7 @@ func filterVideos(videos []*client.Video, resolution int) *client.Video {
 	return video
 }
 
-func buildLectureAssetsDirectory(cfg *Config, course *client.Course, lecture *client.Lecture) error {
+func buildLectureAssetsDirectory(cfg *config.Config, course *client.Course, lecture *client.Lecture) error {
 	p := getLectureAssetsDirectory(cfg, course, lecture)
 	return os.MkdirAll(p, 0755)
 }

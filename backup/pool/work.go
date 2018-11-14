@@ -1,4 +1,4 @@
-package backup
+package pool
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/ushu/udemy-backup/backup/config"
 	"github.com/ushu/udemy-backup/cli"
 )
 
@@ -19,7 +20,7 @@ const (
 
 type Work struct {
 	Type    WorkType
-	Config  *Config
+	Config  *config.Config
 	Payload interface{}
 }
 

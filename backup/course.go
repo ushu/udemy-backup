@@ -2,17 +2,23 @@ package backup
 
 import (
 	"context"
+	"errors"
 	"os"
 
+	"github.com/ushu/udemy-backup/backup/config"
 	"github.com/ushu/udemy-backup/cli"
 
 	"github.com/ushu/udemy-backup/client"
 )
 
-func BackupCourse(ctx context.Context, cfg *Config, course *client.Course) error {
+func BackupCourse(ctx context.Context, course *client.Course) error {
+	cfg, ok := config.FromContext(ctx)
+	if !ok {
+		return errors.New("missing config")
+	}
+
 	// then we list all the lectures for the course
-	api := cfg.Client
-	lectures, err := api.LoadFullCurriculum(course.ID)
+	lectures, err := cfg.Client.LoadFullCurriculum(course.ID)
 	if err != nil {
 		cli.Log("☠️")
 		return err
@@ -36,19 +42,19 @@ func BackupCourse(ctx context.Context, cfg *Config, course *client.Course) error
 
 	// finally we enqueue the download work for all the lectures
 	for _, lecture := range lectures {
-		if err := BackupLecture(ctx, cfg, course, lecture); err != nil {
+		if err := BackupLecture(ctx, course, lecture); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func buildCourseDirectory(cfg *Config, course *client.Course) error {
+func buildCourseDirectory(cfg *config.Config, course *client.Course) error {
 	p := getCourseDirectory(cfg, course)
 	return os.MkdirAll(p, 0755)
 }
 
-func buildChapterDirectory(cfg *Config, course *client.Course, chapter *client.Chapter) error {
+func buildChapterDirectory(cfg *config.Config, course *client.Course, chapter *client.Chapter) error {
 	p := getChapterDirectory(cfg, course, chapter)
 	return os.MkdirAll(p, 0755)
 }

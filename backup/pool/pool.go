@@ -1,8 +1,10 @@
-package backup
+package pool
 
 import (
 	"context"
 	"sync"
+
+	"github.com/ushu/udemy-backup/backup/config"
 )
 
 type Pool struct {
@@ -11,7 +13,7 @@ type Pool struct {
 	ch         chan Work
 }
 
-func NewPool(size int) *Pool {
+func New(size int) *Pool {
 	return &Pool{
 		Size: size,
 		ch:   make(chan Work, size),
@@ -46,14 +48,14 @@ func (p *Pool) Start(ctx context.Context) error {
 	return err
 }
 
-func (p *Pool) EnqueueDowload(ctx context.Context, cfg *Config, url, filePath string) error {
+func (p *Pool) EnqueueDowload(ctx context.Context, cfg *config.Config, url, filePath string) error {
 	payload := &DownloadPayload{
 		URL:      url,
 		FilePath: filePath}
 	return p.enqueue(ctx, Work{WorkTypeDownload, cfg, payload})
 }
 
-func (p *Pool) EnqueueWrite(ctx context.Context, cfg *Config, filePath string, contents []byte) error {
+func (p *Pool) EnqueueWrite(ctx context.Context, cfg *config.Config, filePath string, contents []byte) error {
 	payload := &WriteFilePayload{
 		FilePath: filePath,
 		Contents: contents,
