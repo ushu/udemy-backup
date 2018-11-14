@@ -2,20 +2,19 @@ package backup
 
 import (
 	"context"
-
-	"github.com/ushu/udemy-backup/client"
 )
 
-type ContextKey string
+type key int
 
-var (
-	ClientKey ContextKey = "github.com/ushu/udemy-backup/backup.ClientKey"
+const (
+	workerPoolKey key = iota
 )
 
-func SetClient(ctx context.Context, c *client.Client) context.Context {
-	return context.WithValue(ctx, ClientKey, c)
+func NewContext(ctx context.Context, workerPool *Pool) context.Context {
+	return context.WithValue(ctx, workerPoolKey, workerPool)
 }
 
-func GetClient(ctx context.Context) *client.Client {
-	return ctx.Value(ClientKey).(*client.Client)
+func FromContext(ctx context.Context) (*Pool, bool) {
+	pool, ok := ctx.Value(workerPoolKey).(*Pool)
+	return pool, ok
 }
