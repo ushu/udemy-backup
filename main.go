@@ -16,7 +16,7 @@ var (
 	showHelp    bool
 	showVersion bool
 	downloadAll bool
-	quiet bool
+	quiet       bool
 )
 
 func init() {
