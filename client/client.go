@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -40,7 +39,7 @@ func New() *Client {
 }
 
 func (c *Client) Login(ctx context.Context, username, password string) (ID, accessToken string, err error) {
-	return "", "", nil
+	return c.ID, c.AccessToken, nil
 }
 
 func (c *Client) GetUser(ctx context.Context) (*User, error) {
@@ -97,65 +96,24 @@ func (c *Client) LoadCurriculum(ctx context.Context, courseID int, opt *Paginati
 	}
 	u.RawQuery = q.Encode()
 
-	// load curricullum as lectures
-	var l Lectures
+	// load curriculum as lectures
+	var l *Curriculum
 	err := c.getJson(ctx, u.String(), &l)
-	if err != nil {
-		return nil, err
-	}
-
-	// some of the loaded "lectures", are in fact chapters !
-	// (but we still load all as Lecture since chapters as similar keys)
-	var currentChapter *Chapter
-	var results []*Lecture
-	for _, lc := range l.Results {
-		switch lc.Class {
-		case "chapter":
-			currentChapter = &Chapter{
-				ID:          lc.ID,
-				Title:       lc.Title,
-				ObjectIndex: lc.ObjectIndex,
-			}
-		case "lecture":
-			lc.Chapter = currentChapter
-			results = append(results, lc)
-		}
-	}
-
-	return &Curriculum{
-		Count:    len(results),
-		Next:     l.Next,
-		Previous: l.Previous,
-		Results:  results,
-	}, nil
+	return l, err
 }
 
+// getJSON calls GET and unmarshals the response JSON body
 func (c *Client) getJson(ctx context.Context, url string, o interface{}) error {
-	// call the API
-	b, err := c.getBody(ctx, url)
+	res, err := c.GET(ctx, url)
 	if err != nil {
 		return err
 	}
-
-	// and decode the result (expects a tagged struct...)
-	return json.Unmarshal(b, o)
-}
-
-// getBody grabs the whole body (we are not really interested in any other info...)
-func (c *Client) getBody(ctx context.Context, url string) ([]byte, error) {
-	res, err := c.GET(ctx, url)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	// all Udemy API call should return 200 OK
+	defer res.Body.Close() // won't fail !
 	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("call to Udemy failed with status: %s", res.Status)
+		// All calls to the API should response 200 OK
+		return fmt.Errorf("failed call to Udemy: want .StatusCode=%d, got %d", 200, res.StatusCode)
 	}
-
-	// read the whole body
-	return ioutil.ReadAll(res.Body)
+	return json.NewDecoder(res.Body).Decode(o)
 }
 
 // GET sends a GET request to Udemy, adding a whole lot of headers in the process

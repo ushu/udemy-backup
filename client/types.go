@@ -1,6 +1,8 @@
 package client
 
-import "time"
+import (
+	"time"
+)
 
 type User struct {
 	ID          int    `json:"id"`
@@ -45,22 +47,17 @@ type Lecture struct {
 	Title               string   `json:"title"`
 	TitleCleaned        string   `json:"title_cleaned"`
 	Asset               *Asset   `json:"asset"`
-	SupplementatyAssets []*Asset `json:"supplementary_assets"`
+	SupplementaryAssets []*Asset `json:"supplementary_assets"`
 	ObjectIndex         int      `json:"object_index"`
 }
 
 type Chapter struct {
+	Class       string `json:"_class"`
 	ID          int    `json:"id"`
 	Title       string `json:"title"`
 	ObjectIndex int    `json:"object_index"`
 }
 
-type Curriculum struct {
-	Count    int        `json:"count"`
-	Next     string     `json:"next"`
-	Previous string     `json:"previous"`
-	Results  []*Lecture `json:"results"`
-}
 
 type Asset struct {
 	ID           int           `json:"id"`
