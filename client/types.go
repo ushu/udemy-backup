@@ -41,7 +41,6 @@ type Lectures struct {
 }
 
 type Lecture struct {
-	Class               string   `json:"_class"`
 	Chapter             *Chapter `json:"-"`
 	ID                  int      `json:"id"`
 	Title               string   `json:"title"`
@@ -52,12 +51,10 @@ type Lecture struct {
 }
 
 type Chapter struct {
-	Class       string `json:"_class"`
 	ID          int    `json:"id"`
 	Title       string `json:"title"`
 	ObjectIndex int    `json:"object_index"`
 }
-
 
 type Asset struct {
 	ID           int           `json:"id"`
