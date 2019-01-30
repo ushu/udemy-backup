@@ -119,9 +119,12 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 	}
 
 	// start the bar
-	bar := pb.StartNew(len(assets))
+	var bar *pb.ProgressBar
+	if !quiet {
+		bar = pb.StartNew(len(assets))
+	}
 
-	// we use a pull
+	// we use a pull of workers
 	nprocs := 4 //runtime.GOMAXPROCS(0)
 	var wg sync.WaitGroup
 	wg.Add(nprocs)
@@ -136,7 +139,10 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 				select {
 				case <-ctx.Done():
 					return
-				case a := <-ch:
+				case a, ok := <-ch:
+					if !ok {
+						return
+					}
 					var cerr error
 					if a.RemoteURL != "" {
 						cerr = downloadURLToFile(client.HTTPClient, a.RemoteURL, a.LocalPath)
@@ -148,25 +154,35 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 						cancel()
 						return
 					}
-					bar.Increment()
+					if !quiet {
+						bar.Increment()
+					}
 				}
 			}
 		}()
 	}
 
-	for _, a := range assets {
-		select {
-		case <-ctx.Done():
-			close(ch)
-			return err
-		default:
-			ch <- a
+	// push all the assets
+	go func() {
+		defer close(ch)
+		for _, a := range assets {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				ch <- a
+			}
 		}
-	}
-	close(ch)
+	}()
 
 	wg.Wait()
-	bar.FinishPrint("OK")
+	if !quiet {
+		if err != nil {
+			bar.FinishPrint("OK")
+		} else {
+			bar.FinishPrint("KO")
+		}
+	}
 	return err
 }
 

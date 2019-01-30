@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -150,6 +151,8 @@ func (c *CurriculumItems) UnmarshalJSON(data []byte) error {
 				SupplementaryAssets: i.SupplementaryAssets,
 				Chapter:             currentChapter,
 			})
+		} else if i.Class == "quiz" {
+			log.Println("Warning: quiz entries are not backuped !")
 		} else {
 			return fmt.Errorf("unknown type for curriculum item at position %d: want \"chapter\" or \"lecture\", got %q", idx, i.Class)
 		}
