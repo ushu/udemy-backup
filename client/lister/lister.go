@@ -2,6 +2,7 @@ package lister
 
 import (
 	"context"
+
 	"github.com/ushu/udemy-backup/client"
 )
 
@@ -13,8 +14,8 @@ func New(c *client.Client) *Lister {
 	return (*Lister)(c)
 }
 
-func (l *Lister) LoadFullCurriculum(ctx context.Context, courseID int) ([]*client.Lecture, error) {
-	var res []*client.Lecture
+func (l *Lister) LoadFullCurriculum(ctx context.Context, courseID int) (client.CurriculumItems, error) {
+	var res client.CurriculumItems
 	opt := &client.PaginationOptions{
 		Page:     1,
 		PageSize: DefaultPageSize,
@@ -37,7 +38,7 @@ func (l *Lister) LoadFullCurriculum(ctx context.Context, courseID int) ([]*clien
 	return res, nil
 }
 
-func (l *Lister) ListAllCourses(ctx context.Context) ([]*Course, error) {
+func (l *Lister) ListAllCourses(ctx context.Context) ([]*client.Course, error) {
 	var cc []*client.Course
 	opt := &client.PaginationOptions{
 		Page:     1,

@@ -4,7 +4,7 @@ import "context"
 
 var DefaultClient = New()
 
-func Login(username, password string) (ID, accessToken string, err error) {
+func Login(username, password string) (cred Credentials, err error) {
 	return DefaultClient.Login(context.Background(), username, password)
 }
 

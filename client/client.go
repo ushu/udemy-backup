@@ -8,13 +8,18 @@ import (
 	"net/url"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 )
 
 type Client struct {
-	ID          string
-	AccessToken string
 	HTTPClient  *http.Client
+	Credentials Credentials
+}
+
+type Credentials struct {
+	ID          int    `json:"id"`
+	AccessToken string `json:"access_token"`
 }
 
 type PaginationOptions struct {
@@ -24,6 +29,7 @@ type PaginationOptions struct {
 
 const BaseURL = "https://www.udemy.com/api-2.0"
 const (
+	LoginPath     = "auth/udemy-auth/login"
 	UserPath      = "users/me"
 	MyCoursesPath = "users/me/subscribed-courses"
 	CoursesPath   = "courses"
@@ -38,8 +44,36 @@ func New() *Client {
 	}
 }
 
-func (c *Client) Login(ctx context.Context, username, password string) (ID, accessToken string, err error) {
-	return c.ID, c.AccessToken, nil
+func (c *Client) Login(ctx context.Context, email, password string) (Credentials, error) {
+	var cred Credentials
+
+	// prepare the request
+	u := BaseURL + "/" + LoginPath + "/?fields[user]=access_token"
+	params := url.Values{
+		"email":    {email},
+		"password": {password},
+	}
+	body := strings.NewReader(params.Encode())
+	req, err := http.NewRequest("POST", u, body)
+	if err != nil {
+		return cred, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	// taken from https://github.com/FaisalUmair/udemy-downloader-gui/blob/master/assets/js/app.js
+	req.Header.Set("Authorization", "Basic YWQxMmVjYTljYmUxN2FmYWM2MjU5ZmU1ZDk4NDcxYTY6YTdjNjMwNjQ2MzA4ODI0YjIzMDFmZGI2MGVjZmQ4YTA5NDdlODJkNQ==")
+
+	// call the backend
+	res, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return cred, err
+	}
+
+	// and then parse the response
+	err = json.NewDecoder(res.Body).Decode(&cred)
+	res.Body.Close()
+
+	c.Credentials = cred
+	return cred, err
 }
 
 func (c *Client) GetUser(ctx context.Context) (*User, error) {
@@ -130,13 +164,13 @@ func (c *Client) GET(ctx context.Context, url string) (*http.Response, error) {
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 	req.Header.Set("Host", "www.udemy.com")
 	req.Header.Set("Origin", "https://www.udemy.com")
-	if c.ID != "" {
-		req.Header.Set("X-Udemy-Client-Id", c.ID)
+	if c.Credentials.ID != 0 {
+		req.Header.Set("X-Udemy-Client-Id", strconv.Itoa(c.Credentials.ID))
 	}
-	if c.AccessToken != "" {
-		req.Header.Set("X-Udemy-Bearer-Token", c.AccessToken)
-		req.Header.Set("X-Udemy-Authorization", "Bearer "+c.AccessToken)
-		req.Header.Set("Authorization", "Bearer "+c.AccessToken)
+	if c.Credentials.AccessToken != "" {
+		req.Header.Set("X-Udemy-Bearer-Token", c.Credentials.AccessToken)
+		req.Header.Set("X-Udemy-Authorization", "Bearer "+c.Credentials.AccessToken)
+		req.Header.Set("Authorization", "Bearer "+c.Credentials.AccessToken)
 	}
 
 	// and call the backend

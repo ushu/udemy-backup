@@ -1,24 +1,22 @@
 package backup
 
 import (
-	"bytes"
 	"fmt"
 	"path/filepath"
 	"strings"
 
-	"github.com/ushu/udemy-backup/backup/config"
 	"github.com/ushu/udemy-backup/client"
 )
 
 var pathSanitizer = strings.NewReplacer("/", "|", ":", " - ")
 
-func getCourseDirectory(cfg *config.Config, course *client.Course) string {
+func getCourseDirectory(rootDir string, course *client.Course) string {
 	slug := getCourseSlug(course)
-	return filepath.Join(cfg.RootDir, slug)
+	return filepath.Join(rootDir, slug)
 }
 
-func getChapterDirectory(cfg *config.Config, course *client.Course, chapter *client.Chapter) string {
-	base := getCourseDirectory(cfg, course)
+func getChapterDirectory(rootDir string, course *client.Course, chapter *client.Chapter) string {
+	base := getCourseDirectory(rootDir, course)
 	if chapter == nil {
 		return base // some courses have no chapters
 	}
@@ -41,18 +39,8 @@ func getLecturePrefix(lecture *client.Lecture) string {
 	return pathSanitizer.Replace(prefix)
 }
 
-func getLectureAssetsDirectory(cfg *config.Config, course *client.Course, lecture *client.Lecture) string {
-	dir := getChapterDirectory(cfg, course, lecture.Chapter)
+func getLectureAssetsDirectory(rootDir string, course *client.Course, lecture *client.Lecture) string {
+	dir := getChapterDirectory(rootDir, course, lecture.Chapter)
 	prefix := getLecturePrefix(lecture)
 	return filepath.Join(dir, prefix)
-}
-
-func linksToFileContents(links []*link) []byte {
-	w := new(bytes.Buffer)
-	for _, link := range links {
-		fmt.Fprintln(w, link.Title)
-		fmt.Fprintln(w, link.URL)
-		fmt.Fprintln(w)
-	}
-	return w.Bytes()
 }
