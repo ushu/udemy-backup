@@ -165,7 +165,7 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 					var err error
 				Retries:
 					for retry := 0; retry < 3; retry++ {
-						err = downloadURLToFile(client.HTTPClient, a.RemoteURL, a.LocalPath)
+						err = downloadURLToFile(ctx, client.HTTPClient, a.RemoteURL, a.LocalPath)
 						if err == nil {
 							break Retries
 						}
@@ -206,7 +206,7 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 	return nil
 }
 
-func downloadURLToFile(c *http.Client, url, filePath string) error {
+func downloadURLToFile(ctx context.Context, c *http.Client, url, filePath string) error {
 	tmpPath := filePath + ".tmp"
 
 	// open file for writing
@@ -216,7 +216,13 @@ func downloadURLToFile(c *http.Client, url, filePath string) error {
 	}
 
 	// connect to the backend to get the file
-	res, err := c.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		f.Close()
+		return err
+	}
+	req = req.WithContext(ctx)
+	res, err := c.Do(req)
 	if err != nil {
 		f.Close()
 		return err
