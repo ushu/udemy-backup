@@ -177,11 +177,7 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 
 	wg.Wait()
 	if !quiet {
-		if err != nil {
-			bar.FinishPrint("OK")
-		} else {
-			bar.FinishPrint("KO")
-		}
+		bar.FinishPrint("")
 	}
 	return err
 }

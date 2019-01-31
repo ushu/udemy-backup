@@ -55,6 +55,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## TODO
 
 * [ ] Add backup for slides
-* [ ] Improve terminal output (maybe using a progress bar ?)
+* [ ] Add backup for quiz
 * [ ] Improve error handling (right now any error fails the whole process)
-* [ ] Cleanup the code
