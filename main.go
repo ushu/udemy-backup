@@ -36,6 +36,9 @@ var (
 	quiet       bool
 )
 
+// Number of parallel workers
+var concurrency = 4
+
 func init() {
 	flag.BoolVar(&downloadAll, "a", false, "download all the courses enrolled by the user")
 	flag.BoolVar(&showHelp, "h", false, "show usage info")
@@ -122,64 +125,59 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 	var bar *pb.ProgressBar
 	if !quiet {
 		bar = pb.StartNew(len(assets))
+		defer bar.FinishPrint("")
 	}
 
-	// we use a pull of workers
-	nprocs := 4 //runtime.GOMAXPROCS(0)
-	var wg sync.WaitGroup
-	wg.Add(nprocs)
-	ch := make(chan backup.Asset, nprocs)
+	// start a cancelable context
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	for i := 0; i < nprocs; i++ {
+	// we use a pull of workers
+	chwork := make(chan backup.Asset)      // assets to process get enqueued here
+	cherr := make(chan error, concurrency) // download results
+
+	// start the workers
+	var wg sync.WaitGroup
+	wg.Add(concurrency)
+	for i := 0; i < concurrency; i++ {
 		go func() {
 			defer wg.Done()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case a, ok := <-ch:
-					if !ok {
-						return
-					}
-					var cerr error
-					if a.RemoteURL != "" {
-						cerr = downloadURLToFile(client.HTTPClient, a.RemoteURL, a.LocalPath)
-					} else if len(a.Contents) > 0 {
-						cerr = ioutil.WriteFile(a.LocalPath, a.Contents, os.ModePerm)
-					}
-					if cerr != nil {
-						err = cerr
-						cancel()
-						return
-					}
-					if !quiet {
-						bar.Increment()
-					}
+			for a := range chwork {
+				if a.RemoteURL != "" {
+					cherr <- downloadURLToFile(client.HTTPClient, a.RemoteURL, a.LocalPath)
+				} else if len(a.Contents) > 0 {
+					cherr <- ioutil.WriteFile(a.LocalPath, a.Contents, os.ModePerm)
+				}
+				if !quiet {
+					bar.Increment()
 				}
 			}
 		}()
 	}
 
-	// push all the assets
+	// and the "pusher" goroutine
 	go func() {
-		defer close(ch)
+		// enqueue all assets (unless we cancel)
 		for _, a := range assets {
 			select {
 			case <-ctx.Done():
-				return
-			default:
-				ch <- a
+				break
+			case chwork <- a:
 			}
 		}
+		// we close channels on "enqueing" side to avoid panics
+		close(chwork) // <- will stop the workers
+		wg.Wait()
+		close(cherr) // <- we close when we are sure there won't be a "write"
 	}()
 
-	wg.Wait()
-	if !quiet {
-		bar.FinishPrint("")
+	// we wait for an error (if any)
+	for err := range cherr {
+		if err != nil {
+			return err // <- will cancel the context, then the "pusher", then the workers
+		}
 	}
-	return err
+	return nil
 }
 
 func downloadURLToFile(c *http.Client, url, filePath string) error {
