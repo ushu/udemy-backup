@@ -34,6 +34,7 @@ var (
 	showVersion bool
 	downloadAll bool
 	quiet       bool
+	restart     bool
 )
 
 // Number of parallel workers
@@ -43,6 +44,7 @@ func init() {
 	flag.BoolVar(&downloadAll, "a", false, "download all the courses enrolled by the user")
 	flag.BoolVar(&showHelp, "h", false, "show usage info")
 	flag.BoolVar(&quiet, "q", false, "disable output messages")
+	flag.BoolVar(&restart, "r", false, "do not re-download files already present")
 	flag.BoolVar(&showVersion, "v", false, "show version number")
 	flag.Usage = func() {
 		fmt.Print(usageDescription)
@@ -111,7 +113,7 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 
 	// list all the available course elements
 	b := backup.New(client, ".", false)
-	assets, dirs, err := b.ListCourseAssets(ctx, course)
+	assets, dirs, err := b.ListCourseAssets(ctx, course, restart)
 	if err != nil {
 		return err
 	}
