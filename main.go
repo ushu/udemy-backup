@@ -144,7 +144,6 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 	if !quiet {
 		bar = pb.StartNew(len(allAssets))
 		bar.Add(len(allAssets) - len(assets))
-		defer bar.FinishPrint("")
 	}
 
 	// start a cancelable context
