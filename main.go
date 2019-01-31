@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"sync"
 
 	"github.com/ushu/udemy-backup/backup"
@@ -38,7 +39,7 @@ var (
 )
 
 // Number of parallel workers
-var concurrency = 4
+var concurrency int
 
 func init() {
 	flag.BoolVar(&downloadAll, "a", false, "download all the courses enrolled by the user")
@@ -52,6 +53,10 @@ func init() {
 	}
 	log.SetFlags(0)
 	log.SetPrefix("")
+	concurrency = runtime.GOMAXPROCS(0)
+	if concurrency > 8 {
+		concurrency = 8
+	}
 }
 
 func main() {
