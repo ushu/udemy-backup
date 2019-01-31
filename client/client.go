@@ -40,6 +40,9 @@ func New() *Client {
 	return &Client{
 		HTTPClient: &http.Client{
 			Timeout: Timeout,
+			Transport: &http.Transport{
+				DisableKeepAlives: true,
+			},
 		},
 	}
 }
