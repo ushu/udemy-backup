@@ -162,7 +162,15 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 			defer wg.Done()
 			for a := range chwork {
 				if a.RemoteURL != "" {
-					cherr <- downloadURLToFile(client.HTTPClient, a.RemoteURL, a.LocalPath)
+					var err error
+				Retries:
+					for retry := 0; retry < 3; retry++ {
+						err = downloadURLToFile(client.HTTPClient, a.RemoteURL, a.LocalPath)
+						if err == nil {
+							break Retries
+						}
+					}
+					cherr <- err
 				} else if len(a.Contents) > 0 {
 					cherr <- ioutil.WriteFile(a.LocalPath, a.Contents, os.ModePerm)
 				}
