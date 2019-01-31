@@ -113,7 +113,7 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 
 	// list all the available course elements
 	b := backup.New(client, ".", false)
-	assets, dirs, err := b.ListCourseAssets(ctx, course, restart)
+	allAssets, dirs, err := b.ListCourseAssets(ctx, course)
 	if err != nil {
 		return err
 	}
@@ -123,10 +123,22 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 		os.MkdirAll(d, 0755)
 	}
 
+	var assets []backup.Asset
+	if restart {
+		for _, a := range allAssets {
+			if !fileExists(a.LocalPath) {
+				assets = append(assets, a)
+			}
+		}
+	} else {
+		assets = allAssets
+	}
+
 	// start the bar
 	var bar *pb.ProgressBar
 	if !quiet {
-		bar = pb.StartNew(len(assets))
+		bar = pb.StartNew(len(allAssets))
+		bar.Add(len(allAssets) - len(assets))
 		defer bar.FinishPrint("")
 	}
 
@@ -212,4 +224,9 @@ func downloadURLToFile(c *http.Client, url, filePath string) error {
 		return err
 	}
 	return os.Rename(tmpPath, filePath)
+}
+
+func fileExists(name string) bool {
+	_, err := os.Stat(name)
+	return !os.IsNotExist(err)
 }

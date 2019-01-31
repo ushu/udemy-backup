@@ -35,7 +35,7 @@ func New(client *client.Client, rootDir string, loadSubtitles bool) *Backuper {
 	return &Backuper{client, rootDir, loadSubtitles}
 }
 
-func (b *Backuper) ListCourseAssets(ctx context.Context, course *client.Course, restart bool) ([]Asset, []string, error) {
+func (b *Backuper) ListCourseAssets(ctx context.Context, course *client.Course) ([]Asset, []string, error) {
 	var directories []string
 	var assets []Asset
 
@@ -59,7 +59,7 @@ func (b *Backuper) ListCourseAssets(ctx context.Context, course *client.Course, 
 				directories = append(directories, chapDir)
 			}
 		} else if lecture, ok := l.(*client.Lecture); ok {
-			courseAssets, courseDirs := b.ListLectureAssets(course, lecture, restart)
+			courseAssets, courseDirs := b.ListLectureAssets(course, lecture)
 			if err != nil {
 				return assets, directories, err
 			}
@@ -75,7 +75,7 @@ func (b *Backuper) ListCourseAssets(ctx context.Context, course *client.Course, 
 	return assets, directories, nil
 }
 
-func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lecture, restart bool) ([]Asset, []string) {
+func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lecture) ([]Asset, []string) {
 	var directories []string
 	var assets []Asset
 	prefix := getLecturePrefix(lecture)
@@ -91,13 +91,10 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 	if video != nil {
 		// enqueue download of the video
 		dir := getChapterDirectory(b.RootDir, course, lecture.Chapter)
-		localPath := filepath.Join(dir, prefix+".mp4")
-		if !restart || !fileExists(localPath) {
-			assets = append(assets, Asset{
-				LocalPath: localPath,
-				RemoteURL: video.File,
-			})
-		}
+		assets = append(assets, Asset{
+			LocalPath: filepath.Join(dir, prefix+".mp4"),
+			RemoteURL: video.File,
+		})
 
 		// when the stream is found, we also look up the captions
 		if b.LoadSubtitles && lecture.Asset != nil && len(lecture.Asset.Captions) > 0 {
@@ -109,13 +106,10 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 				ext := filepath.Ext(c.FileName)
 				locale := c.Locale.Locale
 				fileName := fmt.Sprintf("%s.%s%s", prefix, locale, ext)
-				localPath := filepath.Join(dir, fileName)
-				if !restart || !fileExists(localPath) {
-					assets = append(assets, Asset{
-						LocalPath: localPath,
-						RemoteURL: c.URL,
-					})
-				}
+				assets = append(assets, Asset{
+					LocalPath: filepath.Join(dir, fileName),
+					RemoteURL: c.URL,
+				})
 			}
 		}
 	}
@@ -146,25 +140,19 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 			}
 			// now we grab the file, into the assets directory
 			for _, f := range a.DownloadUrls.File {
-				localPath := filepath.Join(assetsDir, f.Label)
-				if !restart || !fileExists(localPath) {
-					assets = append(assets, Asset{
-						LocalPath: localPath,
-						RemoteURL: f.File,
-					})
-				}
+				assets = append(assets, Asset{
+					LocalPath: filepath.Join(assetsDir, f.Label),
+					RemoteURL: f.File,
+				})
 			}
 		}
 		// finally, if we found one or more links, we create a "links.txt" file
 		if len(links) > 0 {
 			contents := linksToFileContents(links)
-			localPath := filepath.Join(dir, "links.txt")
-			if !restart || !fileExists(localPath) {
-				assets = append(assets, Asset{
-					LocalPath: localPath,
-					Contents:  contents,
-				})
-			}
+			assets = append(assets, Asset{
+				LocalPath: filepath.Join(dir, "links.txt"),
+				Contents:  contents,
+			})
 		}
 	}
 
