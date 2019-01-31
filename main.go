@@ -19,7 +19,7 @@ import (
 )
 
 // Version of the tool
-var Version = "0.3.1"
+var Version = "0.3.2"
 
 // Help message (before options)
 const usageDescription = `Usage: udemy-backup
@@ -36,6 +36,7 @@ var (
 	downloadAll bool
 	quiet       bool
 	restart     bool
+	output      string
 )
 
 // Number of parallel workers
@@ -44,6 +45,7 @@ var concurrency int
 func init() {
 	flag.BoolVar(&downloadAll, "a", false, "download all the courses enrolled by the user")
 	flag.BoolVar(&showHelp, "h", false, "show usage info")
+	flag.StringVar(&output, "o", ".", "output directory")
 	flag.BoolVar(&quiet, "q", false, "disable output messages")
 	flag.BoolVar(&restart, "r", false, "do not re-download files already present")
 	flag.BoolVar(&showVersion, "v", false, "show version number")
@@ -117,7 +119,7 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 	var err error
 
 	// list all the available course elements
-	b := backup.New(client, ".", false)
+	b := backup.New(client, output, false)
 	allAssets, dirs, err := b.ListCourseAssets(ctx, course)
 	if err != nil {
 		return err
