@@ -202,11 +202,6 @@ func linksToFileContents(links []*link) []byte {
 	return w.Bytes()
 }
 
-func fileExists(name string) bool {
-	_, err := os.Stat(name)
-	return !os.IsNotExist(err)
-}
-
 func dirExists(name string) bool {
 	s, err := os.Stat(name)
 	return !os.IsNotExist(err) && s.IsDir()
