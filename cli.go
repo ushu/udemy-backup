@@ -33,13 +33,16 @@ func selectCourse(courses []*client.Course) (*client.Course, error) {
 	return courses[i], nil
 }
 
-func askCredentials() (login string, password string, err error) {
+func askCredentials() (email string, password string, err error) {
 	prompt := promptui.Prompt{
 		Label:    "Email",
 		Validate: notEmpty,
 	}
-	login, err = prompt.Run()
+	email, err = prompt.Run()
 	if err != nil {
+		return
+	} else if email == "" {
+		err = errors.New("email is required")
 		return
 	}
 
@@ -49,6 +52,9 @@ func askCredentials() (login string, password string, err error) {
 		Validate: notEmpty,
 	}
 	password, err = prompt.Run()
+	if err == nil && password == "" {
+		err = errors.New("password is required")
+	}
 	return
 }
 
