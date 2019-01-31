@@ -128,6 +128,7 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 		os.MkdirAll(d, 0755)
 	}
 
+	// filter already-downloaded assets when "restart" is selected
 	var assets []backup.Asset
 	if restart {
 		for _, a := range allAssets {
@@ -139,11 +140,12 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 		assets = allAssets
 	}
 
-	// start the bar
+	// create the "bar"
 	var bar *pb.ProgressBar
 	if !quiet {
-		bar = pb.StartNew(len(allAssets))
+		bar = pb.New(len(allAssets))
 		bar.Add(len(allAssets) - len(assets))
+		bar.Start()
 	}
 
 	// start a cancelable context
