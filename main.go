@@ -19,7 +19,7 @@ import (
 )
 
 // Version of the tool
-var Version = "0.3.2"
+var Version = "0.3.4"
 
 // Help message (before options)
 const usageDescription = `Usage: udemy-backup
