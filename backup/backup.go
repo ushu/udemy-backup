@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 
@@ -47,17 +46,13 @@ func (b *Backuper) ListCourseAssets(ctx context.Context, course *client.Course) 
 	}
 	// we start by creating the necessary directories to hold all the lectures the root dir
 	courseDir := getCourseDirectory(b.RootDir, course)
-	if !dirExists(courseDir) {
-		directories = append(directories, courseDir)
-	}
+	directories = append(directories, courseDir)
 
 	// now we parse the curriculum
 	for _, l := range lectures {
 		if chap, ok := l.(*client.Chapter); ok {
 			chapDir := getChapterDirectory(b.RootDir, course, chap)
-			if !dirExists(chapDir) {
-				directories = append(directories, chapDir)
-			}
+			directories = append(directories, chapDir)
 		} else if lecture, ok := l.(*client.Lecture); ok {
 			courseAssets, courseDirs := b.ListLectureAssets(course, lecture)
 			if err != nil {
@@ -65,9 +60,7 @@ func (b *Backuper) ListCourseAssets(ctx context.Context, course *client.Course) 
 			}
 			assets = append(assets, courseAssets...)
 			for _, courseDir := range courseDirs {
-				if dirExists(courseDir) {
-					directories = append(directories, courseDir)
-				}
+				directories = append(directories, courseDir)
 			}
 		}
 	}
@@ -82,7 +75,7 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 
 	// flag for building the (optional) assets dir
 	assetsDir := getLectureAssetsDirectory(b.RootDir, course, lecture)
-	assetsDirectoryBuilt := dirExists(assetsDir)
+	assetsDirectoryBuilt := false
 
 	// now we traverse the Lecture struct, and enqueue all the necessary work
 	// first the video stream, if any
@@ -118,7 +111,6 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 	// additional files
 	//
 	if len(lecture.SupplementaryAssets) > 0 {
-		dir := getLectureAssetsDirectory(b.RootDir, course, lecture)
 		if !assetsDirectoryBuilt {
 			directories = append(directories, assetsDir)
 			assetsDirectoryBuilt = true
@@ -150,7 +142,7 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 		if len(links) > 0 {
 			contents := linksToFileContents(links)
 			assets = append(assets, Asset{
-				LocalPath: filepath.Join(dir, "links.txt"),
+				LocalPath: filepath.Join(assetsDir, "links.txt"),
 				Contents:  contents,
 			})
 		}
@@ -200,9 +192,4 @@ func linksToFileContents(links []*link) []byte {
 		fmt.Fprintln(w)
 	}
 	return w.Bytes()
-}
-
-func dirExists(name string) bool {
-	s, err := os.Stat(name)
-	return !os.IsNotExist(err) && s.IsDir()
 }

@@ -127,7 +127,11 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 
 	// create all the required directories
 	for _, d := range dirs {
-		os.MkdirAll(d, 0755)
+		if !dirExists(d) {
+			if err = os.MkdirAll(d, 0755); err != nil {
+				log.Fatal(err)
+			}
+		}
 	}
 
 	// filter already-downloaded assets when "restart" is selected
@@ -252,4 +256,9 @@ func downloadURLToFile(ctx context.Context, c *http.Client, url, filePath string
 func fileExists(name string) bool {
 	_, err := os.Stat(name)
 	return !os.IsNotExist(err)
+}
+
+func dirExists(name string) bool {
+	s, err := os.Stat(name)
+	return !os.IsNotExist(err) && s.IsDir()
 }
