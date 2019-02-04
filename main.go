@@ -35,7 +35,7 @@ var (
 	showVersion bool
 	downloadAll bool
 	quiet       bool
-	restart     bool
+	redownload  bool
 	output      string
 )
 
@@ -47,7 +47,7 @@ func init() {
 	flag.BoolVar(&showHelp, "h", false, "show usage info")
 	flag.StringVar(&output, "o", ".", "output directory")
 	flag.BoolVar(&quiet, "q", false, "disable output messages")
-	flag.BoolVar(&restart, "r", false, "do not re-download files already present")
+	flag.BoolVar(&redownload, "r", false, "force re-download of existing files")
 	flag.BoolVar(&showVersion, "v", false, "show version number")
 	flag.Usage = func() {
 		fmt.Print(usageDescription)
@@ -134,9 +134,9 @@ func downloadCourse(ctx context.Context, client *client.Client, course *client.C
 		}
 	}
 
-	// filter already-downloaded assets when "restart" is selected
+	// filter already-downloaded assets when "redownload" is selected
 	var assets []backup.Asset
-	if restart {
+	if !redownload {
 		for _, a := range allAssets {
 			if !fileExists(a.LocalPath) {
 				assets = append(assets, a)

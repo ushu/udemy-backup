@@ -30,10 +30,18 @@ $ go install
 
 Enter your Udemy credentials and follow the instructions:
 
-```
+```sh
 $ udemy-backup 
 Email: xxx@gmail.com
 Password: •••••••
+```
+
+#### Re-downloading elements
+
+By default, `udemy-backup` will skip already-downloaded files. To force a re-download of all the assets, one can do:
+
+```sh
+$ udemy-backup -r
 ```
 
 #### Download all the courses
