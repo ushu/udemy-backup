@@ -71,10 +71,10 @@ func (b *Backuper) ListCourseAssets(ctx context.Context, course *client.Course) 
 func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lecture) ([]Asset, []string) {
 	var directories []string
 	var assets []Asset
-	prefix := getLecturePrefix(lecture)
 
+	chapDir := getChapterDirectory(b.RootDir, course, lecture.Chapter)
+	prefix := getLecturePrefix(lecture)
 	// flag for building the (optional) assets dir
-	assetsDir := getLectureAssetsDirectory(b.RootDir, course, lecture)
 	assetsDirectoryBuilt := false
 
 	// now we traverse the Lecture struct, and enqueue all the necessary work
@@ -83,14 +83,14 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 	video := filterVideos(videos, 1080)
 	if video != nil {
 		// enqueue download of the video
-		dir := getChapterDirectory(b.RootDir, course, lecture.Chapter)
 		assets = append(assets, Asset{
-			LocalPath: filepath.Join(dir, prefix+".mp4"),
+			LocalPath: filepath.Join(chapDir, prefix+".mp4"),
 			RemoteURL: video.File,
 		})
 
 		// when the stream is found, we also look up the captions
 		if b.LoadSubtitles && lecture.Asset != nil && len(lecture.Asset.Captions) > 0 {
+			assetsDir := filepath.Join(chapDir, prefix)
 			if !assetsDirectoryBuilt {
 				directories = append(directories, assetsDir)
 				assetsDirectoryBuilt = true
@@ -98,9 +98,9 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 			for _, c := range lecture.Asset.Captions {
 				ext := filepath.Ext(c.FileName)
 				locale := c.Locale.Locale
-				fileName := fmt.Sprintf("%s.%s%s", prefix, locale, ext)
+				captionFileName := fmt.Sprintf("%s.%s%s", prefix, locale, ext)
 				assets = append(assets, Asset{
-					LocalPath: filepath.Join(dir, fileName),
+					LocalPath: filepath.Join(assetsDir, captionFileName),
 					RemoteURL: c.URL,
 				})
 			}
@@ -111,6 +111,7 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 	// additional files
 	//
 	if len(lecture.SupplementaryAssets) > 0 {
+		assetsDir := filepath.Join(chapDir, prefix)
 		if !assetsDirectoryBuilt {
 			directories = append(directories, assetsDir)
 			assetsDirectoryBuilt = true
