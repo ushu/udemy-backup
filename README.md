@@ -2,6 +2,8 @@
 
 In a nutshell, `udemy-backup` downloads videos and related assets, and store them all in a folder for offline consumption.
 
+![Usage](usage.gif)
+
 ## Getting Started
 
 The tool is a go binary, you can install it using `go get`:
