@@ -24,8 +24,21 @@ Clone the repo and use go [`dep`](https://github.com/golang/dep) to fetch depend
 
 ```sh
 # clone the project into your GOPATH, then:
-$ dep ensure
-$ go install
+$ go get
+```
+
+to run the updated version 
+
+```sh
+# clone the project into your GOPATH, then:
+$ go run .
+```
+
+and to install your development version locally
+
+```sh
+# clone the project into your GOPATH, then:
+$ go install .
 ```
 
 ## Usage
