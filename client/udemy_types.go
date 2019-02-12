@@ -72,6 +72,7 @@ type Asset struct {
 type DownloadURLs struct {
 	Video []*Video `json:"Video"`
 	File  []*File  `json:"File"`
+	Ebook []*File  `json:"E-Book"`
 }
 
 type StreamURLs struct {

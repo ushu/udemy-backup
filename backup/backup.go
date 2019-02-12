@@ -76,6 +76,7 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 
 	chapDir := getChapterDirectory(b.RootDir, course, lecture.Chapter)
 	prefix := getLecturePrefix(lecture)
+
 	// flag for building the (optional) assets dir
 	assetsDirectoryBuilt := false
 
@@ -127,6 +128,22 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 		})
 	}
 
+	// other assets
+	otherAssets := findOtherAssets(lecture)
+	if len(otherAssets) > 0 {
+		assetsDir := filepath.Join(chapDir, prefix)
+		if !assetsDirectoryBuilt {
+			directories = append(directories, assetsDir)
+			assetsDirectoryBuilt = true
+		}
+		for _, a := range otherAssets {
+			assets = append(assets, Asset{
+				LocalPath: filepath.Join(assetsDir, lecture.Asset.Title),
+				RemoteURL: a.File,
+			})
+		}
+	}
+
 	//
 	// additional files
 	//
@@ -148,11 +165,18 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 				continue
 			}
 			// and we also assets there is something to download
-			if a.DownloadUrls == nil || len(a.DownloadUrls.File) == 0 {
+			if a.DownloadUrls == nil {
 				continue
 			}
+			var files []*client.File
+			switch a.AssetType {
+			case "File":
+				files = a.DownloadUrls.File
+			case "E-Book":
+				files = a.DownloadUrls.Ebook
+			}
 			// now we grab the file, into the assets directory
-			for _, f := range a.DownloadUrls.File {
+			for _, f := range files {
 				assets = append(assets, Asset{
 					LocalPath: filepath.Join(assetsDir, a.Title),
 					RemoteURL: f.File,
@@ -177,6 +201,20 @@ func findVideos(lecture *client.Lecture) []*client.Video {
 		return lecture.Asset.DownloadUrls.Video
 	} else if lecture.Asset.StreamUrls != nil {
 		return lecture.Asset.StreamUrls.Video
+	}
+	return nil
+}
+
+func findOtherAssets(lecture *client.Lecture) []*client.File {
+	a := lecture.Asset
+	if a.DownloadUrls == nil {
+		return nil
+	}
+	switch a.AssetType {
+	case "File":
+		return a.DownloadUrls.File
+	case "E-Book":
+		return a.DownloadUrls.Ebook
 	}
 	return nil
 }
@@ -207,7 +245,7 @@ func filterVideos(videos []*client.Video, resolution int) *client.Video {
 
 func filterAudio(videos []*client.Video) *client.Video {
 	for _, v := range videos {
-		if strings.HasPrefix(v.Type, "audio/") {
+		if !strings.HasPrefix(v.Type, "audio/") {
 			return v
 		}
 	}
