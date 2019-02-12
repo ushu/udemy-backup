@@ -6,8 +6,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"mime"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/ushu/udemy-backup/client"
 	"github.com/ushu/udemy-backup/client/lister"
@@ -83,8 +85,12 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 	video := filterVideos(videos, 1080)
 	if video != nil {
 		// enqueue download of the video
+		ext := ".mp4"
+		if exts, _ := mime.ExtensionsByType(video.Type); len(exts) > 0 {
+			ext = exts[0]
+		}
 		assets = append(assets, Asset{
-			LocalPath: filepath.Join(chapDir, prefix+".mp4"),
+			LocalPath: filepath.Join(chapDir, prefix+ext),
 			RemoteURL: video.File,
 		})
 
@@ -105,6 +111,20 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 				})
 			}
 		}
+	}
+
+	// and the audio files
+	audio := filterAudio(videos)
+	if audio != nil {
+		// enqueue download of the audio
+		ext := ".mp3"
+		if exts, _ := mime.ExtensionsByType(audio.Type); len(exts) > 0 {
+			ext = exts[0]
+		}
+		assets = append(assets, Asset{
+			LocalPath: filepath.Join(chapDir, prefix+ext),
+			RemoteURL: audio.File,
+		})
 	}
 
 	//
@@ -153,7 +173,7 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 }
 
 func findVideos(lecture *client.Lecture) []*client.Video {
-	if lecture.Asset.DownloadUrls != nil {
+	if lecture.Asset.DownloadUrls != nil && len(lecture.Asset.DownloadUrls.Video) > 0 {
 		return lecture.Asset.DownloadUrls.Video
 	} else if lecture.Asset.StreamUrls != nil {
 		return lecture.Asset.StreamUrls.Video
@@ -165,7 +185,7 @@ func filterVideos(videos []*client.Video, resolution int) *client.Video {
 	var video *client.Video
 	currentRes := 0
 	for _, v := range videos {
-		if v.Type != "video/mp4" {
+		if !strings.HasPrefix(v.Type, "video/") {
 			continue
 		}
 		vres, err := strconv.Atoi(v.Label)
@@ -183,6 +203,15 @@ func filterVideos(videos []*client.Video, resolution int) *client.Video {
 		}
 	}
 	return video
+}
+
+func filterAudio(videos []*client.Video) *client.Video {
+	for _, v := range videos {
+		if strings.HasPrefix(v.Type, "audio/") {
+			return v
+		}
+	}
+	return nil
 }
 
 func linksToFileContents(links []*link) []byte {
