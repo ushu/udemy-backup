@@ -79,4 +79,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 * [ ] Add backup for slides
 * [ ] Add backup for quiz
-* [ ] Improve error handling (right now any error fails the whole process)
+* [ ] Add backup for practice
