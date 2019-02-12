@@ -148,13 +148,13 @@ func (b *Backuper) ListLectureAssets(course *client.Course, lecture *client.Lect
 				continue
 			}
 			// and we also assets there is something to download
-			if a.DownloadUrls == nil {
+			if a.DownloadUrls == nil || len(a.DownloadUrls.File) == 0 {
 				continue
 			}
 			// now we grab the file, into the assets directory
 			for _, f := range a.DownloadUrls.File {
 				assets = append(assets, Asset{
-					LocalPath: filepath.Join(assetsDir, f.Label),
+					LocalPath: filepath.Join(assetsDir, a.Title),
 					RemoteURL: f.File,
 				})
 			}
