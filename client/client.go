@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"log"
 
 	"golang.org/x/net/publicsuffix"
 
@@ -102,6 +103,8 @@ func (c *Client) Login(ctx context.Context, email, password string) (Credentials
 	if cred.ID == "" || cred.AccessToken == "" {
 		return cred, errors.New("could not load credentials from the response")
 	}
+	log.Printf("clientID=%s\n", cred.ID)
+	log.Printf("accessToken=%s\n", cred.AccessToken)
 
 	c.Credentials = cred
 	return cred, err

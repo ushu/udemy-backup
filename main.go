@@ -19,7 +19,7 @@ import (
 )
 
 // Version of the tool
-var Version = "0.4.0"
+var Version = "0.4.1"
 
 // Help message (before options)
 const usageDescription = `Usage: udemy-backup
@@ -37,6 +37,8 @@ var (
 	quiet       bool
 	redownload  bool
 	output      string
+	clientID    string
+	accessToken string
 )
 
 // Number of parallel workers
@@ -49,6 +51,8 @@ func init() {
 	flag.BoolVar(&quiet, "q", false, "disable output messages")
 	flag.BoolVar(&redownload, "r", false, "force re-download of existing files")
 	flag.BoolVar(&showVersion, "v", false, "show version number")
+	flag.StringVar(&clientID, "c", "", "the client ID")
+	flag.StringVar(&accessToken, "t", "", "the Access Token")
 	flag.Usage = func() {
 		fmt.Print(usageDescription)
 		flag.PrintDefaults()
@@ -79,14 +83,20 @@ func main() {
 	}
 
 	// Connect to the Udemy backend
-	e, p, err := askCredentials()
-	if err != nil {
-		log.Fatal(err)
-	}
 	c := client.New()
-	_, err = c.Login(ctx, e, p)
-	if err != nil {
-		log.Fatal(err)
+	if clientID == "" || accessToken == "" {
+		// log the user in
+		e, p, err := askCredentials()
+		if err != nil {
+			log.Fatal(err)
+		}
+		_, err = c.Login(ctx, e, p)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		c.Credentials.ID = clientID
+		c.Credentials.AccessToken = accessToken
 	}
 
 	// list all the courses
