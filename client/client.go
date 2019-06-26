@@ -3,13 +3,19 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"path"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/net/publicsuffix"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 type Client struct {
@@ -18,14 +24,17 @@ type Client struct {
 }
 
 type Credentials struct {
-	ID          int    `json:"id"`
-	AccessToken string `json:"access_token"`
+	ID          string
+	AccessToken string
 }
 
 type PaginationOptions struct {
 	Page     int
 	PageSize int
 }
+
+// LOGIN
+const LoginFormURL = "https://www.udemy.com/join/login-popup/?display_type=popup&response_type=json"
 
 const BaseURL = "https://www.udemy.com/api-2.0"
 const (
@@ -37,8 +46,10 @@ const (
 )
 
 func New() *Client {
+	jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	return &Client{
 		HTTPClient: &http.Client{
+			Jar:     jar,
 			Timeout: Timeout,
 			Transport: &http.Transport{
 				DisableKeepAlives: true,
@@ -50,11 +61,18 @@ func New() *Client {
 func (c *Client) Login(ctx context.Context, email, password string) (Credentials, error) {
 	var cred Credentials
 
+	// load the form
+	token, err := c.getCSRFToken(ctx)
+
+	// Udemy is behind Cloudflare...
+	time.Sleep(1 * time.Second)
+
 	// prepare the request
-	u := BaseURL + "/" + LoginPath + "/?fields[user]=access_token"
+	u := LoginFormURL
 	params := url.Values{
-		"email":    {email},
-		"password": {password},
+		"email":               {email},
+		"password":            {password},
+		"csrfmiddlewaretoken": {token},
 	}
 	body := strings.NewReader(params.Encode())
 	req, err := http.NewRequest("POST", u, body)
@@ -62,18 +80,28 @@ func (c *Client) Login(ctx context.Context, email, password string) (Credentials
 		return cred, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	// taken from https://github.com/FaisalUmair/udemy-downloader-gui/blob/master/assets/js/app.js
-	req.Header.Set("Authorization", "Basic YWQxMmVjYTljYmUxN2FmYWM2MjU5ZmU1ZDk4NDcxYTY6YTdjNjMwNjQ2MzA4ODI0YjIzMDFmZGI2MGVjZmQ4YTA5NDdlODJkNQ==")
+	req.Header.Set("Accept", "text/html")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36")
+	req.Header.Set("Referer", "https://www.udemy.com/mobile/ipad/")
+	req.Header.Set("Accept-Language", "jn-US;q=0.8,en;q=0.7")
 
 	// call the backend
-	res, err := c.HTTPClient.Do(req)
+	_, err = c.HTTPClient.Do(req.WithContext(ctx))
 	if err != nil {
 		return cred, err
 	}
 
-	// and then parse the response
-	err = json.NewDecoder(res.Body).Decode(&cred)
-	res.Body.Close()
+	url, _ := url.Parse(LoginFormURL)
+	for _, cookie := range c.HTTPClient.Jar.Cookies(url) {
+		if cookie.Name == "access_token" {
+			cred.AccessToken = cookie.Value
+		} else if cookie.Name == "client_id" {
+			cred.ID = cookie.Value
+		}
+	}
+	if cred.ID == "" || cred.AccessToken == "" {
+		return cred, errors.New("could not load credentials from the response")
+	}
 
 	c.Credentials = cred
 	return cred, err
@@ -167,8 +195,8 @@ func (c *Client) GET(ctx context.Context, url string) (*http.Response, error) {
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 	req.Header.Set("Host", "www.udemy.com")
 	req.Header.Set("Origin", "https://www.udemy.com")
-	if c.Credentials.ID != 0 {
-		req.Header.Set("X-Udemy-Client-Id", strconv.Itoa(c.Credentials.ID))
+	if c.Credentials.ID != "" {
+		req.Header.Set("X-Udemy-Client-Id", c.Credentials.ID)
 	}
 	if c.Credentials.AccessToken != "" {
 		req.Header.Set("X-Udemy-Bearer-Token", c.Credentials.AccessToken)
@@ -178,4 +206,42 @@ func (c *Client) GET(ctx context.Context, url string) (*http.Response, error) {
 
 	// and call the backend
 	return c.HTTPClient.Do(req)
+}
+
+// Loads the login form and extracts the temporary CSRF token (used for login !)
+func (c *Client) getCSRFToken(ctx context.Context) (string, error) {
+	// load the HTML for the login form
+	req, _ := http.NewRequest("GET", LoginFormURL, nil)
+	// & add headers to avoid "robot detection"
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "text/html")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36")
+	req.Header.Set("Referer", "https://www.udemy.com/mobile/ipad/")
+	req.Header.Set("Accept-Language", "jn-US;q=0.8,en;q=0.7")
+
+	res, err := c.HTTPClient.Do(req.WithContext(ctx))
+	if err != nil {
+		return "", err // could not contact the server
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		return "", fmt.Errorf("error loading the login form: status=%d", res.StatusCode) // server refused
+	}
+
+	// parse the HTML document
+	// -> the CSRF token is held by an hidden element of the form
+	//    <input type="hidden" name="csrfmiddlewaretoken" value="<TOKEN_IS_HERE>">
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		return "", err // un parsable HTML
+	}
+	input := doc.Find(".signin-form input[name=csrfmiddlewaretoken]") // <- find the hidden input
+	if input.Length() == 0 {
+		return "", errors.New("missing csrfmiddlewaretoken <input> element")
+	}
+	token, ok := input.Attr("value") // <- extract the value="..." from the input
+	if !ok || token == "" {
+		return "", errors.New("missing csrfmiddlewaretoken token value")
+	}
+	return token, nil
 }

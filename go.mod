@@ -1,6 +1,7 @@
 module github.com/ushu/udemy-backup
 
 require (
+	github.com/PuerkitoBio/goquery v1.5.0
 	github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf // indirect
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/google/pprof v0.0.0-20190109223431-e84dfd68c163 // indirect
@@ -15,7 +16,7 @@ require (
 	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/spf13/viper v1.2.1
 	golang.org/x/arch v0.0.0-20181203225421-5a4828bb7045 // indirect
-	golang.org/x/crypto v0.0.0-20190130090550-b01c7a725664 // indirect
+	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 	gopkg.in/alecthomas/kingpin.v3-unstable v3.0.0-20180810215634-df19058c872c // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.27
 )
