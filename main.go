@@ -237,21 +237,21 @@ func downloadURLToFile(ctx context.Context, c *http.Client, url, filePath string
 	// connect to the backend to get the file
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	req = req.WithContext(ctx)
 	res, err := c.Do(req)
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 
 	// load all the data into the local file
 	_, err = io.Copy(f, res.Body)
-	res.Body.Close()
+	_ = res.Body.Close()
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 
