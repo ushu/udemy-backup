@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -12,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"log"
 
 	"golang.org/x/net/publicsuffix"
 
@@ -39,7 +39,6 @@ const LoginFormURL = "https://www.udemy.com/join/login-popup/?display_type=popup
 
 const BaseURL = "https://www.udemy.com/api-2.0"
 const (
-	LoginPath     = "auth/udemy-auth/login"
 	UserPath      = "users/me"
 	MyCoursesPath = "users/me/subscribed-courses"
 	CoursesPath   = "courses"
@@ -92,8 +91,8 @@ func (c *Client) Login(ctx context.Context, email, password string) (Credentials
 		return cred, err
 	}
 
-	url, _ := url.Parse(LoginFormURL)
-	for _, cookie := range c.HTTPClient.Jar.Cookies(url) {
+	loginURL, _ := url.Parse(LoginFormURL)
+	for _, cookie := range c.HTTPClient.Jar.Cookies(loginURL) {
 		if cookie.Name == "access_token" {
 			cred.AccessToken = cookie.Value
 		} else if cookie.Name == "client_id" {
@@ -105,6 +104,9 @@ func (c *Client) Login(ctx context.Context, email, password string) (Credentials
 	}
 	log.Printf("clientID=%s\n", cred.ID)
 	log.Printf("accessToken=%s\n", cred.AccessToken)
+
+	// Udemy is behind Cloudflare...
+	time.Sleep(500 * time.Millisecond)
 
 	c.Credentials = cred
 	return cred, err
@@ -176,7 +178,9 @@ func (c *Client) getJson(ctx context.Context, url string, o interface{}) error {
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close() // won't fail !
+	defer func() {
+		_ = res.Body.Close()
+	}()
 	if res.StatusCode != 200 {
 		// All calls to the API should response 200 OK
 		return fmt.Errorf("failed call to Udemy: want .StatusCode=%d, got %d", 200, res.StatusCode)
@@ -226,8 +230,8 @@ func (c *Client) getCSRFToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err // could not contact the server
 	}
-	defer res.Body.Close()
 	if res.StatusCode != 200 {
+		_ = res.Body.Close()
 		return "", fmt.Errorf("error loading the login form: status=%d", res.StatusCode) // server refused
 	}
 
@@ -235,6 +239,7 @@ func (c *Client) getCSRFToken(ctx context.Context) (string, error) {
 	// -> the CSRF token is held by an hidden element of the form
 	//    <input type="hidden" name="csrfmiddlewaretoken" value="<TOKEN_IS_HERE>">
 	doc, err := goquery.NewDocumentFromReader(res.Body)
+	_ = res.Body.Close()
 	if err != nil {
 		return "", err // un parsable HTML
 	}
